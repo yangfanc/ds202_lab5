@@ -1,0 +1,304 @@
+---
+title: "lab5"
+author: "YangfanCai/yangfanc"
+date: "4/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Background
+```{r}
+acc <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/accident.csv", stringsAsFactors = FALSE)
+# repeat for the person data
+per <- read.csv("https://raw.githubusercontent.com/xdaiISU/ds202materials/master/hwlabs/fars2017/person.csv", stringsAsFactors = FALSE)
+
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(plotly)
+library(lubridate)
+library(tidyverse)
+library(readr)
+library("readxl")
+
+library("dplyr")
+library("ggplot2")
+library(tidyverse)
+library(mapproj)
+```
+
+```{r}
+str(acc)
+str(per)
+```
+
+# Part 1 : Accident data
+#1.are there some days of the week where more accidents happen than on others (use variable DAY_WEEK)?
+
+```{r}
+ggplot(data = acc, aes(x=DAY_WEEK)) + geom_histogram() + ylab("Total Number of Accidents") + xlab("Day of the week") + ggtitle("Total Accidents on each Given Week day") + scale_x_continuous(breaks= c(1, 2, 3, 4, 5, 6, 7), labels = c("Sunday", "Monday", "Tuesday","Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+
+```{r}
+acc %>%ggplot(aes(x=DAY_WEEK))+geom_histogram()+xlab("Day of the Week")+ylab("Total number of accidents")
+```
+
+# summary: through the data, i had found that the most accident orrurred on Sunday, Monday, Saturday. the incident that occurrend the least was Thursday and Friday.
+
+
+
+
+
+
+
+
+#2 what time of the day do accidents happen (use variable HOUR)?
+
+```{r}
+acc1 <- barplot(table(acc$HOUR))
+```
+
+
+```{r}
+acc2 <- table(acc$HOUR)
+# acc2
+```
+
+# summary: this day have more accident. But it have high accident start 10am to 6pm,and then it starts to decline. There are also have most accident in the earily hour when people go to work.
+
+
+
+
+
+
+
+
+#3. what is the number of accidents with at least one drunk driver (use variable DRUNK_DR)?
+```{r}
+ggplot(acc, aes(x=DRUNK_DR)) + geom_bar()
+nrow(acc[acc$DRUNK_DR >= 1,])
+```
+
+
+# summary: though calculate, in this data, it had 8769 accidents. The number of accident with at the least one drunl driver.
+
+# Part two: Connecting data
+
+#4. In the person table, dentify drivers (PER_TYP == 1, see FARS manual) and subset on them.
+```{r}
+person <- per %>% filter(PER_TYP == 1)
+# person
+```
+
+```{r}
+person2 <- unique(per$PER_TYP)
+# person2
+```
+
+
+
+
+
+
+
+#5.Join accident and person table (work out which variable(s) to use)
+
+```{r}
+joined <- left_join(acc, per, by = "ST_CASE")
+# joined
+```
+
+```{r}
+accper <- acc %>%
+  full_join(person, by = c('STATE', 'ST_CASE', 'COUNTY', 'DAY', 'MONTH', 'HOUR', 'MINUTE'))
+# accper
+```
+
+
+`
+
+
+
+
+
+
+#6. Tally the number of accidents by day of the week (DAY_WEEK), hour of the day (HOUR) and gender (SEX). Visualize the results.
+
+```{r}
+dayofweek <- table(joined$DAY_WEEK)
+barplot(dayofweek, main="Accidents per day of the week",
+   xlab="Number of Accidents")
+```
+
+
+
+```{r}
+sex <- table(joined$SEX)
+barplot(sex, main="Accidents per sex",
+   xlab="Number of Accidents")
+
+```
+
+```{r}
+joined <- joined %>%
+  filter(HOUR.x, HOUR.x < 25) %>%
+  filter(SEX, SEX <= 2) %>%
+  mutate(SEX = as.factor(SEX)) %>%
+  mutate(DAY_WEEK = as.factor(DAY_WEEK))
+levels(joined$SEX) <- c("Male", "Female")
+levels(joined$DAY_WEEK) <- c("Sunday", "Monday", "Tuesday",
+                            "Wednesday", "Thursday", "Friday",
+                            "Saturday")
+joined %>%
+  group_by(DAY_WEEK, HOUR.x, SEX) %>%
+  summarize(count = length(unique(ST_CASE))) %>%
+  ggplot(aes(x = HOUR.x, y = count, color = SEX)) +
+  geom_line() +
+  facet_wrap(~DAY_WEEK) +
+  ggtitle("Number of Accidents Over 24 Hours") +
+  xlab("Hour") + ylab("Number in male and female")
+
+```
+
+# summary: through plots, we can find that the accidents for the male are great than accident to female in the weekend.
+
+
+
+
+
+
+# Part three: Connecting data and make maps
+
+#7 Now plot a choropleth map of accidents on a county level
+#Read the description for the STATE and COUNTY columns in the FARS manual. The state & county codes are Geographic Locator Codes (GLCs) from the General Services Administration’s (GSA) publication
+#Use readxl::read_xlsx to read in the GLCs
+
+
+#8 Visualize the number of accidents in each county using a choropleth map. To do this, you need to join the accident data, GLCs, and appropriate map data.
+
+```{r}
+glcs <- readxl::read_xlsx("FRPP GLC - United StatesFeb132020.xlsx")
+
+```
+
+```{r}
+glcs <- glcs %>% 
+   select('State Name', STATE = 'State Code', COUNTY = 'County Code', 'County Name') %>% 
+   unique()
+```
+
+
+
+
+
+
+
+
+```{r}
+names(glcs)[names(glcs) == "State Code"] <- "STATE"
+names(glcs)[names(glcs) == "County Code"] <- "COUNTY"
+glcs <- glcs %>%
+  mutate(STATE = as.numeric(STATE)) %>%
+  mutate(COUNTY = as.numeric(COUNTY))
+names(glcs)[names(glcs) == "State Name"] <- "region"
+names(glcs)[names(glcs) == "County Name"] <- "subregion"
+glcs <- glcs %>%
+  mutate(region = tolower(region)) %>%
+  mutate(subregion = tolower(subregion))
+counties <- map_data('county')
+acc8 <- acc %>%
+  group_by(STATE, COUNTY) %>%
+  summarize(count = n())
+  
+loc <- left_join(counties, glcs, by = c("region" = "region", 
+                                   "subregion" = "subregion"))
+loc <- left_join(loc, acc8, by = c("STATE" = "STATE", 
+                                   "COUNTY" = "COUNTY"))
+loc %>%
+ggplot(aes(x = long, y = lat, fill = log(count))) + 
+  geom_polygon(aes(group=group)) +
+  ggtitle("Number of Accidents on US") +
+  coord_map()
+```
+
+
+
+#9.  Can you find seasonal trends in accident occurrences in different states? Is summer or winter more dangerous? Why?
+
+
+```{r}
+acc91 <- acc %>%
+  filter(STATE %in% c(1,2,3,4,5,6,7,8,9)) %>%
+  group_by(STATE, MONTH) %>%
+  summarize(count = n())
+acc92 <- acc %>%
+  filter(STATE %in% c(10,11,12,13,14,15,16,17,18)) %>%
+  group_by(STATE, MONTH) %>%
+  summarize(count = n())
+acc93 <- acc %>%
+  filter(STATE %in% c(19,20,21,22,23,24,25,26,27)) %>%
+  group_by(STATE, MONTH) %>%
+  summarize(count = n())
+acc94 <- acc %>%
+  filter(STATE %in% c(28,29,30,31,32,33,34,35,36)) %>%
+  group_by(STATE, MONTH) %>%
+  summarize(count = n())
+acc95 <- acc %>%
+  filter(STATE %in% c(37,38,39,40,41,42,43,44,45)) %>%
+  group_by(STATE, MONTH) %>%
+  summarize(count = n())
+acc96 <- acc %>%
+  filter(STATE %in% c(46,47,48,49,54,55,56)) %>%
+  group_by(STATE, MONTH) %>%
+  summarize(count = n())
+left_join(acc91, glcs) %>%
+  ggplot(aes(x = MONTH, y = count)) +
+  geom_line() +
+  facet_wrap(~region)
+left_join(acc92, glcs) %>%
+  ggplot(aes(x = MONTH, y = count)) +
+  geom_line() +
+  facet_wrap(~region)
+left_join(acc93, glcs) %>%
+  ggplot(aes(x = MONTH, y = count)) +
+  geom_line() +
+  facet_wrap(~region)
+left_join(acc94, glcs) %>%
+  ggplot(aes(x = MONTH, y = count)) +
+  geom_line() +
+  facet_wrap(~region)
+left_join(acc95, glcs) %>%
+  ggplot(aes(x = MONTH, y = count)) +
+  geom_line() +
+  facet_wrap(~region)
+left_join(acc96, glcs) %>%
+  ggplot(aes(x = MONTH, y = count)) +
+  geom_line() +
+  facet_wrap(~region)
+```
+
+
+# summary: california,michigan,missouri are the 3 high dangers states in the USA. through the plot, I found that the dangers month is in july, and the februry.  as we know, the california, michigan are import goods or produce automobiles. so that the car accident with danger directly related.
+m
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
