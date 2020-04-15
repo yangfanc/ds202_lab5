@@ -217,15 +217,15 @@ acc8 <- acc %>%
   group_by(STATE, COUNTY) %>%
   summarize(count = n())
   
-loc <- left_join(counties, glcs, by = c("region" = "region", 
+local <- left_join(counties, glcs, by = c("region" = "region", 
                                    "subregion" = "subregion"))
-loc <- left_join(loc, acc8, by = c("STATE" = "STATE", 
+local <- left_join(local, acc8, by = c("STATE" = "STATE", 
                                    "COUNTY" = "COUNTY"))
-loc %>%
+local %>%
 ggplot(aes(x = long, y = lat, fill = log(count))) + 
   geom_polygon(aes(group=group)) +
   ggtitle("Number of Accidents on US") +
-  coord_map()
+  coord_map() 
 ```
 
 
